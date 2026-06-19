@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { useApp } from "@/hooks/useAppContext";
-import { useCamera } from "@/hooks/useCamera";
 
 export function Footer() {
   const {
@@ -11,14 +10,7 @@ export function Footer() {
     photoRecordEntry,
     undoLast,
     clearAllRecords,
-    registerPhotoCapture,
   } = useApp();
-
-  const { capture, HiddenVideo } = useCamera(registerPhotoCapture);
-
-  useEffect(() => {
-    registerPhotoCapture(capture);
-  }, [capture, registerPhotoCapture]);
 
   const handleRecord = useCallback(async () => {
     await recordEntry();
@@ -34,9 +26,7 @@ export function Footer() {
   }, [records.length, undoLast]);
 
   return (
-    <>
-      <HiddenVideo />
-      <footer className="fixed bottom-0 inset-x-0 z-40 bg-gray-950/95 backdrop-blur border-t-2 border-gray-700 safe-bottom">
+    <footer className="fixed bottom-0 inset-x-0 z-40 bg-gray-950/95 backdrop-blur border-t-2 border-gray-700 safe-bottom">
         <div className="max-w-lg mx-auto grid grid-cols-4 gap-1 px-2 py-2">
           <button
             onClick={handleRecord}
@@ -66,6 +56,5 @@ export function Footer() {
           </button>
         </div>
       </footer>
-    </>
   );
 }

@@ -6,6 +6,7 @@ import { RecordInput } from "@/components/RecordInput";
 import { RecordList } from "@/components/RecordList";
 import { ExportPanel } from "@/components/ExportPanel";
 import { Footer } from "@/components/Footer";
+import { CameraManager } from "@/components/CameraManager";
 import { useApp } from "@/hooks/useAppContext";
 
 export function MainApp() {
@@ -30,6 +31,7 @@ export function MainApp() {
       <RecordInput />
       <RecordList />
       <ExportPanel />
+      <CameraManager />
       <Footer />
       <div className="shrink-0 h-[72px]" aria-hidden />
     </div>
