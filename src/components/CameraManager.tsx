@@ -14,8 +14,8 @@ function StatusOverlay({ status }: { status: CameraStatus }) {
   }
   if (status === "error") {
     return (
-      <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-red-400 text-[10px] text-center px-2">
-        カメラエラー
+      <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-red-400 text-xs text-center px-2">
+        カメラを利用できません
       </div>
     );
   }
@@ -31,21 +31,21 @@ export function CameraManager() {
   }, [capture, registerPhotoCapture]);
 
   return (
-    <div
-      className="fixed z-30 right-3 w-36 rounded-xl overflow-hidden border-2 border-blue-500 shadow-xl shadow-black/60 bg-black"
-      style={{ bottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}
-    >
-      <div className="relative w-full aspect-[4/3]">
-        <video
-          ref={onVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className="absolute inset-0 w-full h-full object-cover bg-black"
-        />
-        <StatusOverlay status={status} />
-        <div className="absolute top-0 inset-x-0 z-10 bg-black/60 text-white text-[10px] text-center py-0.5 font-semibold">
-          📷 プレビュー
+    <div className="shrink-0 px-4 pb-2">
+      <div className="rounded-xl overflow-hidden border border-gray-700 bg-black">
+        <div className="relative w-full aspect-[2.4/1] max-h-24">
+          <video
+            ref={onVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 w-full h-full object-cover bg-black"
+          />
+          <StatusOverlay status={status} />
+          <div className="absolute top-1 left-2 z-10 flex items-center gap-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full font-medium">
+            <span aria-hidden>📷</span>
+            <span>写真記録用</span>
+          </div>
         </div>
       </div>
     </div>

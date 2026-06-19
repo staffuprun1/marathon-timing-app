@@ -43,6 +43,17 @@ input[type="date"] {
   font-size: 16px;
 }
 
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
+  cursor: pointer;
+}
+
+input[type="time"],
+input[type="date"] {
+  color-scheme: dark;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     --background: #030712;

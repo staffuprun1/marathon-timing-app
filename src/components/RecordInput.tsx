@@ -25,7 +25,7 @@ export function RecordInput() {
 
   return (
     <div
-      className={`px-4 py-3 transition-colors duration-150 ${flash ? "bg-emerald-900/50" : ""}`}
+      className={`shrink-0 px-4 py-2 transition-colors duration-150 ${flash ? "bg-emerald-900/50" : ""}`}
     >
       <label htmlFor="bib-input" className="block text-sm text-gray-400 mb-1">
         ゼッケン番号
@@ -45,7 +45,7 @@ export function RecordInput() {
         onChange={(e) => setBibInput(e.target.value.replace(/\D/g, ""))}
         onKeyDown={handleKeyDown}
         placeholder="番号を入力 → Enter"
-        className="w-full bg-gray-800 border-2 border-gray-600 focus:border-emerald-500 rounded-xl px-4 py-4 text-4xl font-mono font-bold text-white text-center tracking-widest outline-none"
+        className="w-full bg-gray-800 border-2 border-gray-600 focus:border-emerald-500 rounded-xl px-4 py-3 text-3xl font-mono font-bold text-white text-center tracking-widest outline-none"
       />
       {detectedEvent && detectedEvent !== "unknown" && (
         <div className="mt-2 text-center text-emerald-400 font-semibold text-lg">

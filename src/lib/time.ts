@@ -26,6 +26,24 @@ export function formatElapsed(ms: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(centiseconds).padStart(2, "0")}`;
 }
 
+export function elapsedMsToTimeValue(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+export function timeValueToElapsedMs(value: string): number | null {
+  const parts = value.split(":");
+  if (parts.length < 2) return null;
+  const hours = parseInt(parts[0] ?? "0", 10);
+  const minutes = parseInt(parts[1] ?? "0", 10);
+  const seconds = parseInt(parts[2] ?? "0", 10);
+  if ([hours, minutes, seconds].some(isNaN)) return null;
+  return (hours * 3600 + minutes * 60 + seconds) * 1000;
+}
+
 export function formatElapsedShort(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);

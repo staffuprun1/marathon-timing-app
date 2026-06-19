@@ -21,7 +21,13 @@ import { useApp } from "@/hooks/useAppContext";
 import { detectEventFromBib } from "@/lib/bib-event";
 import type { RecordStatus, TimingRecord } from "@/lib/types";
 import { EVENT_LABELS } from "@/lib/types";
-import { formatElapsedShort, formatRecordTime, parseElapsedToMs } from "@/lib/time";
+import {
+  elapsedMsToTimeValue,
+  formatElapsedShort,
+  formatRecordTime,
+  timeValueToElapsedMs,
+} from "@/lib/time";
+import { TimePicker } from "@/components/TimePicker";
 
 function PhotoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   return (
@@ -127,12 +133,12 @@ function EditModal({
   const { editRecord, removeRecord } = useApp();
   const [rank, setRank] = useState(String(record.rank));
   const [bib, setBib] = useState(record.bibNumber ?? "");
-  const [time, setTime] = useState(formatElapsedShort(record.elapsedMs));
+  const [time, setTime] = useState(elapsedMsToTimeValue(record.elapsedMs));
   const [status, setStatus] = useState<RecordStatus>(record.status);
 
   async function handleSave() {
     const elapsedMs =
-      status === "finished" ? (parseElapsedToMs(time) ?? record.elapsedMs) : record.elapsedMs;
+      status === "finished" ? (timeValueToElapsedMs(time) ?? record.elapsedMs) : record.elapsedMs;
     const bibVal = bib.trim() || null;
 
     await editRecord({
@@ -187,13 +193,14 @@ function EditModal({
 
         <label className="block">
           <span className="text-xs text-gray-400">タイム</span>
-          <input
-            type="text"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            disabled={status !== "finished"}
-            className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-white text-xl font-mono disabled:opacity-50"
-          />
+          <div className="mt-1">
+            <TimePicker
+              value={time}
+              onChange={setTime}
+              disabled={status !== "finished"}
+              className="py-3 text-xl disabled:opacity-50"
+            />
+          </div>
         </label>
 
         <div className="flex gap-2">

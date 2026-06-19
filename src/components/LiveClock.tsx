@@ -20,9 +20,9 @@ export function LiveClock() {
   }, [settings.startDate, settings.startTime]);
 
   return (
-    <div className="text-center py-2">
-      <div className="text-sm text-gray-400">{clock}</div>
-      <div className="text-4xl font-mono font-bold text-emerald-400 tracking-wider">
+    <div className="shrink-0 text-center py-1.5 border-b border-gray-800/50">
+      <div className="text-xs text-gray-500">{clock}</div>
+      <div className="text-3xl font-mono font-bold text-emerald-400 tracking-wider">
         {elapsed}
       </div>
     </div>

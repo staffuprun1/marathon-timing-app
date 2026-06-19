@@ -23,17 +23,20 @@ export function MainApp() {
   return (
     <div className="h-dvh bg-gray-950 flex flex-col max-w-lg mx-auto">
       <header className="shrink-0 px-4 py-2 border-b border-gray-800 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">マラソン計測</h1>
-        <span className="text-emerald-400 font-bold text-lg">{records.length}件</span>
+        <h1 className="text-lg font-bold text-white">マラソン計測</h1>
+        <span className="text-emerald-400 font-bold">{records.length}件</span>
       </header>
+
       <LiveClock />
       <SettingsPanel />
       <RecordInput />
-      <RecordList />
-      <ExportPanel />
       <CameraManager />
+
+      <RecordList />
+
+      <ExportPanel />
       <Footer />
-      <div className="shrink-0 h-[72px]" aria-hidden />
+      <div className="shrink-0 h-[68px]" aria-hidden="true" />
     </div>
   );
 }
