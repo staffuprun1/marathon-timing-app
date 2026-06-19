@@ -18,15 +18,36 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useApp } from "@/hooks/useAppContext";
+import { detectEventFromBib } from "@/lib/bib-event";
 import type { RecordStatus, TimingRecord } from "@/lib/types";
+import { EVENT_LABELS } from "@/lib/types";
 import { formatElapsedShort, formatRecordTime, parseElapsedToMs } from "@/lib/time";
+
+function PhotoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt="記録写真"
+        className="max-w-full max-h-full object-contain rounded-lg"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
 
 function SortableRow({
   record,
   onEdit,
+  onPhotoTap,
 }: {
   record: TimingRecord;
   onEdit: (r: TimingRecord) => void;
+  onPhotoTap: (src: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: record.id });
@@ -44,31 +65,51 @@ function SortableRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 px-3 py-3 border-b border-gray-800 bg-gray-950 hover:bg-gray-900"
+      className="flex items-center gap-2 px-2 py-2.5 border-b border-gray-800 bg-gray-950"
     >
       <button
         {...attributes}
         {...listeners}
-        className="text-gray-600 px-1 touch-manipulation cursor-grab active:cursor-grabbing"
+        className="text-gray-600 px-0.5 touch-manipulation cursor-grab shrink-0"
         aria-label="並び替え"
       >
         ☰
       </button>
-      <span className="w-10 text-center font-bold text-emerald-400 text-lg">
+
+      {record.photoThumb ? (
+        <button
+          onClick={() => onPhotoTap(record.photoThumb!)}
+          className="shrink-0 touch-manipulation"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={record.photoThumb}
+            alt=""
+            className="w-12 h-12 object-cover rounded-lg border border-gray-700"
+          />
+        </button>
+      ) : (
+        <div className="w-12 h-12 shrink-0 bg-gray-900 rounded-lg border border-gray-800" />
+      )}
+
+      <span className="w-9 text-center font-bold text-emerald-400 text-lg shrink-0">
         {record.rank}
       </span>
-      <span className="w-16 text-center font-mono text-white text-lg">
+      <span className="w-14 text-center font-mono font-bold text-white text-lg shrink-0">
         {record.bibNumber ?? "—"}
       </span>
-      <span className="flex-1 font-mono text-white text-lg">
+      <span className="w-12 text-center text-xs font-semibold text-cyan-400 shrink-0">
+        {EVENT_LABELS[record.eventType]}
+      </span>
+      <span className="flex-1 font-mono font-bold text-white text-base min-w-0 truncate">
         {statusLabel ?? formatElapsedShort(record.elapsedMs)}
       </span>
-      <span className="text-xs text-gray-500 w-16 text-right">
+      <span className="text-[10px] text-gray-500 shrink-0">
         {formatRecordTime(record.recordedAt)}
       </span>
       <button
         onClick={() => onEdit(record)}
-        className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm touch-manipulation"
+        className="px-2 py-1 bg-gray-800 text-gray-300 rounded-lg text-xs shrink-0 touch-manipulation"
       >
         編集
       </button>
@@ -92,11 +133,13 @@ function EditModal({
   async function handleSave() {
     const elapsedMs =
       status === "finished" ? (parseElapsedToMs(time) ?? record.elapsedMs) : record.elapsedMs;
+    const bibVal = bib.trim() || null;
 
     await editRecord({
       ...record,
       rank: parseInt(rank, 10) || record.rank,
-      bibNumber: bib.trim() || null,
+      bibNumber: bibVal,
+      eventType: detectEventFromBib(bibVal),
       elapsedMs,
       status,
     });
@@ -112,7 +155,7 @@ function EditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-4">
-      <div className="bg-gray-900 rounded-2xl w-full max-w-md p-5 space-y-4 border border-gray-700">
+      <div className="bg-gray-900 rounded-2xl w-full max-w-md p-5 space-y-4 border border-gray-700 mb-20">
         <h3 className="text-xl font-bold text-white">記録編集</h3>
 
         <label className="block">
@@ -135,6 +178,11 @@ function EditModal({
             placeholder="未入力"
             className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-white text-xl font-mono"
           />
+          {bib && (
+            <span className="text-sm text-cyan-400 mt-1 block">
+              種目: {EVENT_LABELS[detectEventFromBib(bib)]}
+            </span>
+          )}
         </label>
 
         <label className="block">
@@ -194,6 +242,7 @@ function EditModal({
 export function RecordList() {
   const { records, reorderRecords } = useApp();
   const [editing, setEditing] = useState<TimingRecord | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -215,39 +264,35 @@ export function RecordList() {
   }
 
   return (
-    <div className="flex-1 overflow-hidden flex flex-col">
-      <div className="px-4 py-2 flex items-center justify-between border-b border-gray-800">
-        <h2 className="font-bold text-white">
-          記録一覧
+    <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+      <div className="px-4 py-2 flex items-center justify-between border-b border-gray-800 shrink-0">
+        <h2 className="font-bold text-white text-lg">
+          ログ
           <span className="ml-2 text-emerald-400">{records.length}件</span>
         </h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain">
         {records.length === 0 ? (
           <div className="text-center text-gray-500 py-12">記録がありません</div>
         ) : (
-          <>
-            <div className="flex items-center gap-2 px-3 py-2 text-xs text-gray-500 border-b border-gray-800">
-              <span className="w-6" />
-              <span className="w-10 text-center">順位</span>
-              <span className="w-16 text-center">ゼッケン</span>
-              <span className="flex-1">タイム</span>
-              <span className="w-16 text-right">時刻</span>
-              <span className="w-14" />
-            </div>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={records.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-                {records.map((record) => (
-                  <SortableRow key={record.id} record={record} onEdit={setEditing} />
-                ))}
-              </SortableContext>
-            </DndContext>
-          </>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={records.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+              {records.map((record) => (
+                <SortableRow
+                  key={record.id}
+                  record={record}
+                  onEdit={setEditing}
+                  onPhotoTap={setLightbox}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 
       {editing && <EditModal record={editing} onClose={() => setEditing(null)} />}
+      {lightbox && <PhotoLightbox src={lightbox} onClose={() => setLightbox(null)} />}
     </div>
   );
 }

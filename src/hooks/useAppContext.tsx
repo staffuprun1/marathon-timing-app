@@ -1,18 +1,32 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   addRecord,
+  deleteAllRecords,
   deleteRecord,
-  getRecords,
+  getAllRecords,
   getSettings,
   saveAllRecords,
   saveSettings,
   updateRecord,
 } from "@/lib/db";
+import { detectEventFromBib } from "@/lib/bib-event";
 import type { AppSettings, TimingRecord } from "@/lib/types";
 import { DEFAULT_SETTINGS } from "@/lib/types";
-import { createRecord, reorderRanks, speakRecord } from "@/lib/record-utils";
+import {
+  createRecord,
+  feedbackRecord,
+  reorderRanks,
+  speakRecord,
+} from "@/lib/record-utils";
 
 interface AppContextValue {
   settings: AppSettings;
@@ -20,13 +34,17 @@ interface AppContextValue {
   loading: boolean;
   bibInput: string;
   setBibInput: (v: string) => void;
+  flash: boolean;
   updateSettings: (partial: Partial<AppSettings>) => Promise<void>;
-  recordEntry: (bibOverride?: string | null) => Promise<TimingRecord | null>;
+  recordEntry: () => Promise<TimingRecord | null>;
+  photoRecordEntry: () => Promise<TimingRecord | null>;
+  undoLast: () => Promise<void>;
+  clearAllRecords: () => Promise<void>;
   editRecord: (record: TimingRecord) => Promise<void>;
   removeRecord: (id: string) => Promise<void>;
   reorderRecords: (records: TimingRecord[]) => Promise<void>;
-  refreshRecords: () => Promise<void>;
   refreshAll: () => Promise<void>;
+  registerPhotoCapture: (fn: () => string | null) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -36,85 +54,120 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [records, setRecords] = useState<TimingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [bibInput, setBibInput] = useState("");
+  const [flash, setFlash] = useState(false);
   const settingsRef = useRef(settings);
   const recordsRef = useRef(records);
+  const capturePhotoRef = useRef<(() => string | null) | null>(null);
 
   settingsRef.current = settings;
   recordsRef.current = records;
 
-  const refreshRecords = useCallback(async () => {
-    const s = settingsRef.current;
-    const data = await getRecords(s.eventType);
-    setRecords(data);
+  const triggerFlash = useCallback(() => {
+    setFlash(true);
+    feedbackRecord();
+    setTimeout(() => setFlash(false), 180);
+  }, []);
+
+  const registerPhotoCapture = useCallback((fn: () => string | null) => {
+    capturePhotoRef.current = fn;
   }, []);
 
   useEffect(() => {
     async function init() {
       const s = await getSettings();
       setSettings(s);
-      const data = await getRecords(s.eventType);
-      setRecords(data);
+      setRecords(await getAllRecords());
       setLoading(false);
     }
     init();
   }, []);
 
-  const updateSettings = useCallback(
-    async (partial: Partial<AppSettings>) => {
-      const next = { ...settingsRef.current, ...partial };
-      setSettings(next);
-      await saveSettings(next);
-      if (partial.eventType !== undefined) {
-        const data = await getRecords(next.eventType);
-        setRecords(data);
+  useEffect(() => {
+    function onVisibility() {
+      if (document.visibilityState === "visible") {
+        getAllRecords().then(setRecords);
       }
-    },
-    []
-  );
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
 
-  const recordEntry = useCallback(
-    async (bibOverride?: string | null): Promise<TimingRecord | null> => {
-      const s = settingsRef.current;
-      const currentRecords = recordsRef.current;
+  const updateSettings = useCallback(async (partial: Partial<AppSettings>) => {
+    const next = { ...settingsRef.current, ...partial };
+    setSettings(next);
+    await saveSettings(next);
+  }, []);
 
-      let bib: string | null;
-      if (bibOverride !== undefined) {
-        bib = bibOverride;
-      } else if (s.congestionMode) {
-        bib = bibInput.trim() || null;
-      } else {
-        bib = bibInput.trim() || null;
-        if (!bib && !s.congestionMode) return null;
-      }
-
-      const record = createRecord(s, currentRecords, bib);
+  const saveNewRecord = useCallback(
+    async (record: TimingRecord) => {
       await addRecord(record);
-
-      const updated = [...currentRecords, record].sort((a, b) => a.rank - b.rank);
+      const updated = [...recordsRef.current, record].sort((a, b) => a.rank - b.rank);
       setRecords(updated);
       setBibInput("");
-      speakRecord(record.bibNumber, record.rank, s.voiceEnabled);
-
+      speakRecord(record.bibNumber, record.rank, settingsRef.current.voiceEnabled);
+      triggerFlash();
       return record;
     },
-    [bibInput]
+    [triggerFlash]
   );
+
+  const resolveBib = useCallback((): string | null => {
+    const s = settingsRef.current;
+    const bib = bibInput.trim() || null;
+    if (!bib && !s.congestionMode) return null;
+    return bib;
+  }, [bibInput]);
+
+  const recordEntry = useCallback(async (): Promise<TimingRecord | null> => {
+    const bib = resolveBib();
+    if (bib === null && !settingsRef.current.congestionMode) return null;
+    const record = createRecord(settingsRef.current, recordsRef.current, bib);
+    return saveNewRecord(record);
+  }, [resolveBib, saveNewRecord]);
+
+  const photoRecordEntry = useCallback(async (): Promise<TimingRecord | null> => {
+    const bib = resolveBib();
+    if (bib === null && !settingsRef.current.congestionMode) return null;
+    const thumb = capturePhotoRef.current?.() ?? undefined;
+    const record = createRecord(
+      settingsRef.current,
+      recordsRef.current,
+      bib,
+      thumb ?? undefined
+    );
+    return saveNewRecord(record);
+  }, [resolveBib, saveNewRecord]);
+
+  const undoLast = useCallback(async () => {
+    const current = recordsRef.current;
+    if (current.length === 0) return;
+    const last = current.reduce((a, b) => (a.rank > b.rank ? a : b));
+    await deleteRecord(last.id);
+    const remaining = current.filter((r) => r.id !== last.id);
+    const reordered = reorderRanks(remaining);
+    await saveAllRecords(reordered);
+    setRecords(reordered);
+    feedbackRecord();
+  }, []);
+
+  const clearAllRecords = useCallback(async () => {
+    if (!confirm("本当に削除しますか？\n削除後は復元不可")) return;
+    await deleteAllRecords();
+    setRecords([]);
+  }, []);
 
   const editRecord = useCallback(async (record: TimingRecord) => {
     await updateRecord(record);
     setRecords((prev) => prev.map((r) => (r.id === record.id ? record : r)));
   }, []);
 
-  const removeRecord = useCallback(
-    async (id: string) => {
-      await deleteRecord(id);
-      const remaining = recordsRef.current.filter((r) => r.id !== id);
-      const reordered = reorderRanks(remaining);
-      await saveAllRecords(reordered);
-      setRecords(reordered);
-    },
-    []
-  );
+  const removeRecord = useCallback(async (id: string) => {
+    await deleteRecord(id);
+    const remaining = recordsRef.current.filter((r) => r.id !== id);
+    const reordered = reorderRanks(remaining);
+    await saveAllRecords(reordered);
+    setRecords(reordered);
+  }, []);
 
   const reorderRecords = useCallback(async (newRecords: TimingRecord[]) => {
     const reordered = reorderRanks(newRecords);
@@ -125,8 +178,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshAll = useCallback(async () => {
     const s = await getSettings();
     setSettings(s);
-    const data = await getRecords(s.eventType);
-    setRecords(data);
+    setRecords(await getAllRecords());
   }, []);
 
   return (
@@ -137,13 +189,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loading,
         bibInput,
         setBibInput,
+        flash,
         updateSettings,
         recordEntry,
+        photoRecordEntry,
+        undoLast,
+        clearAllRecords,
         editRecord,
         removeRecord,
         reorderRecords,
-        refreshRecords,
         refreshAll,
+        registerPhotoCapture,
       }}
     >
       {children}

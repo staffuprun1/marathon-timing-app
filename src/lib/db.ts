@@ -1,16 +1,11 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
-import type { AppSettings, PhotoRecord, TimingRecord } from "./types";
+import type { AppSettings, TimingRecord } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 
 interface MarathonDB extends DBSchema {
   records: {
     key: string;
     value: TimingRecord;
-    indexes: { "by-event": EventTypeIndex; "by-rank": number };
-  };
-  photos: {
-    key: string;
-    value: PhotoRecord;
   };
   settings: {
     key: string;
@@ -18,9 +13,7 @@ interface MarathonDB extends DBSchema {
   };
 }
 
-type EventTypeIndex = string;
-
-const DB_NAME = "marathon-timing";
+const DB_NAME = "marathon-timing-v2";
 const DB_VERSION = 1;
 
 let dbPromise: Promise<IDBPDatabase<MarathonDB>> | null = null;
@@ -29,11 +22,12 @@ function getDB() {
   if (!dbPromise) {
     dbPromise = openDB<MarathonDB>(DB_NAME, DB_VERSION, {
       upgrade(db) {
-        const recordStore = db.createObjectStore("records", { keyPath: "id" });
-        recordStore.createIndex("by-event", "eventType");
-        recordStore.createIndex("by-rank", "rank");
-        db.createObjectStore("photos", { keyPath: "id" });
-        db.createObjectStore("settings", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("records")) {
+          db.createObjectStore("records", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("settings")) {
+          db.createObjectStore("settings", { keyPath: "id" });
+        }
       },
     });
   }
@@ -55,9 +49,9 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
   await db.put("settings", { id: SETTINGS_KEY, ...settings });
 }
 
-export async function getRecords(eventType: string): Promise<TimingRecord[]> {
+export async function getAllRecords(): Promise<TimingRecord[]> {
   const db = await getDB();
-  const all = await db.getAllFromIndex("records", "by-event", eventType);
+  const all = await db.getAll("records");
   return all.sort((a, b) => a.rank - b.rank);
 }
 
@@ -76,6 +70,11 @@ export async function deleteRecord(id: string): Promise<void> {
   await db.delete("records", id);
 }
 
+export async function deleteAllRecords(): Promise<void> {
+  const db = await getDB();
+  await db.clear("records");
+}
+
 export async function saveAllRecords(records: TimingRecord[]): Promise<void> {
   const db = await getDB();
   const tx = db.transaction("records", "readwrite");
@@ -85,39 +84,21 @@ export async function saveAllRecords(records: TimingRecord[]): Promise<void> {
   await tx.done;
 }
 
-export async function addPhoto(photo: PhotoRecord): Promise<void> {
-  const db = await getDB();
-  await db.add("photos", photo);
-}
-
-export async function getPhoto(id: string): Promise<PhotoRecord | undefined> {
-  const db = await getDB();
-  return db.get("photos", id);
-}
-
-export async function getAllPhotos(): Promise<PhotoRecord[]> {
-  const db = await getDB();
-  return db.getAll("photos");
-}
-
 export async function exportAllData(): Promise<{
   settings: AppSettings;
   records: TimingRecord[];
-  photos: PhotoRecord[];
 }> {
   const db = await getDB();
-  const [settings, records, photos] = await Promise.all([
+  const [settings, records] = await Promise.all([
     getSettings(),
     db.getAll("records"),
-    db.getAll("photos"),
   ]);
-  return { settings, records, photos };
+  return { settings, records };
 }
 
 export async function importAllData(data: {
   settings?: AppSettings;
   records?: TimingRecord[];
-  photos?: PhotoRecord[];
 }): Promise<void> {
   const db = await getDB();
   if (data.settings) {
@@ -131,22 +112,4 @@ export async function importAllData(data: {
     }
     await tx.done;
   }
-  if (data.photos) {
-    const tx = db.transaction("photos", "readwrite");
-    await tx.store.clear();
-    for (const photo of data.photos) {
-      await tx.store.put(photo);
-    }
-    await tx.done;
-  }
-}
-
-export async function clearEventRecords(eventType: string): Promise<void> {
-  const db = await getDB();
-  const records = await getRecords(eventType);
-  const tx = db.transaction("records", "readwrite");
-  for (const record of records) {
-    await tx.store.delete(record.id);
-  }
-  await tx.done;
 }

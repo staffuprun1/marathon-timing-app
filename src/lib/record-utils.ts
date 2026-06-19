@@ -1,3 +1,4 @@
+import { detectEventFromBib } from "./bib-event";
 import type { AppSettings, TimingRecord } from "./types";
 import { getElapsedMs } from "./time";
 
@@ -18,20 +19,21 @@ export function speakRecord(bibNumber: string | null, rank: number, enabled: boo
 export function createRecord(
   settings: AppSettings,
   records: TimingRecord[],
-  bibNumber: string | null
+  bibNumber: string | null,
+  photoThumb?: string
 ): TimingRecord {
   const nextRank = records.length > 0 ? Math.max(...records.map((r) => r.rank)) + 1 : 1;
-  const now = new Date();
-  const elapsedMs = getElapsedMs(settings.startDate, settings.startTime);
+  const bib = bibNumber?.trim() || null;
 
   return {
     id: crypto.randomUUID(),
     rank: nextRank,
-    bibNumber: bibNumber?.trim() || null,
-    elapsedMs,
-    recordedAt: now.toISOString(),
-    eventType: settings.eventType,
+    bibNumber: bib,
+    elapsedMs: getElapsedMs(settings.startDate, settings.startTime),
+    recordedAt: new Date().toISOString(),
+    eventType: detectEventFromBib(bib),
     status: "finished",
+    ...(photoThumb ? { photoThumb } : {}),
   };
 }
 
@@ -42,4 +44,8 @@ export function reorderRanks(records: TimingRecord[]): TimingRecord[] {
       ...record,
       rank: index + 1,
     }));
+}
+
+export function feedbackRecord(): void {
+  if (navigator.vibrate) navigator.vibrate(50);
 }

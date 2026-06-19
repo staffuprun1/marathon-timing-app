@@ -4,15 +4,13 @@ import { useRef } from "react";
 import { useApp } from "@/hooks/useAppContext";
 import { downloadCSV, downloadJSON } from "@/lib/csv";
 import { exportAllData, importAllData } from "@/lib/db";
-import { EVENT_LABELS } from "@/lib/types";
 
 export function ExportPanel() {
   const { settings, records, refreshAll } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
 
   function handleCSV() {
-    const filename = `${EVENT_LABELS[settings.eventType]}_${settings.startDate}.csv`;
-    downloadCSV(records, filename);
+    downloadCSV(records, `marathon_${settings.startDate}.csv`);
   }
 
   async function handleJSONExport() {
@@ -38,25 +36,25 @@ export function ExportPanel() {
   }
 
   return (
-    <div className="px-4 py-3 border-t border-gray-800 space-y-2">
+    <div className="shrink-0 px-4 py-2 border-t border-gray-800">
       <div className="flex gap-2">
         <button
           onClick={handleCSV}
-          className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 rounded-xl text-sm touch-manipulation"
+          className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-2.5 rounded-xl text-sm touch-manipulation"
         >
-          CSV出力
+          CSV
         </button>
         <button
           onClick={handleJSONExport}
-          className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 rounded-xl text-sm touch-manipulation"
+          className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-2.5 rounded-xl text-sm touch-manipulation"
         >
-          JSONバックアップ
+          バックアップ
         </button>
         <button
           onClick={() => fileRef.current?.click()}
-          className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 rounded-xl text-sm touch-manipulation"
+          className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-2.5 rounded-xl text-sm touch-manipulation"
         >
-          JSON復元
+          復元
         </button>
         <input
           ref={fileRef}
